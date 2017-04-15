@@ -35,7 +35,7 @@ class ConsumerThread(threading.Thread):
 
     def get_file_path(self, secID):
         sec = secID.replace('.', '-')
-        filename = sec + '_' + self.begin_date + '_' + self.end_date + '.data'
+        filename = sec + '.data'
         return filename
 
     def run(self):
@@ -61,11 +61,25 @@ class DataDownloader(object):
         self.universe = universe
         self.begin_date = begin_date
         self.end_date = end_date
+        
+        # data dir
         data_dir = os.path.join(root_path, 'data')
         if not os.path.exists(data_dir):
             print 'Creating directory:', data_dir
             os.makedirs(data_dir)
-        self.data_path = os.path.join(data_dir, chart_name)
+        
+        # date dir
+        if begin_date == end_date:
+            date = begin_date
+        else:
+            date = begin_date + '_' + end_date
+        data_date_dir = os.path.join(data_dir, date)
+        if not os.path.exists(data_date_dir):
+            print 'Creating directory:', data_date_dir
+            os.makedirs(data_date_dir)
+
+        # chart dir
+        self.data_path = os.path.join(data_date_dir, chart_name)
         if not os.path.exists(self.data_path):
             print 'Creating directory:', self.data_path
             os.makedirs(self.data_path)
@@ -100,6 +114,7 @@ if __name__ == '__main__':
                              field=u"ticker,secID", pandas="1")
     universe_secID = list(universe['secID'])
 
+    # for debug
     stock_num = 100
     universe_secID = universe_secID[0:stock_num]
 
