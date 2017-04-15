@@ -61,8 +61,13 @@ class DataDownloader(object):
         self.universe = universe
         self.begin_date = begin_date
         self.end_date = end_date
-        self.data_path = os.path.join(root_path, 'data', chart_name)
+        data_dir = os.path.join(root_path, 'data')
+        if not os.path.exists(data_dir):
+            print 'Creating directory:', data_dir
+            os.makedirs(data_dir)
+        self.data_path = os.path.join(data_dir, chart_name)
         if not os.path.exists(self.data_path):
+            print 'Creating directory:', self.data_path
             os.makedirs(self.data_path)
         self.queue = Queue.Queue()
         [self.queue.put(secID) for secID in universe]
