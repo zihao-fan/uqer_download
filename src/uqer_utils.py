@@ -2,12 +2,30 @@
 import datetime
 from dateutil.parser import parse
 import pandas as pd 
+import os
 
 import uqer
 from uqer import DataAPI
 
-account_file_path = '../account.txt'
-client = uqer.Client(account_file=account_file_path)
+current_path = os.path.realpath(__file__)
+root_path = '/'.join(current_path.split('/')[:-2])
+
+def login():
+    account_file_path = os.path.join(root_path, 'account.txt')
+    client = uqer.Client(account_file=account_file_path)
+    return client
+
+def get_today():
+    '''
+    return a str 'YYYYMMDD'
+    '''
+    return datetime.datetime.now().strftime('%Y%m%d')
+
+def get_data_filename_from_path(path, max_num=None):
+    data_files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.endswith('.data')]
+    if max_num is not None:
+        data_files = data_files[0:min(max_num, len(csv_files))]
+    return data_files
 
 def ticker2secID(ticker):
     """
@@ -99,9 +117,13 @@ def get_time_list(start_date, end_date):
     return time_list
 
 if __name__ == '__main__':
-    tickers = ['600000','000001']
-    res = secIDs = ticker2secID(tickers)
-    print 'ticker2secID', res
+    pass
+    # today = datetime.datetime.now().strftime('%Y%m%d')
+    # print 'today', today, type(today)
+
+    # tickers = ['600000','000001']
+    # res = secIDs = ticker2secID(tickers)
+    # print 'ticker2secID', res
 
     # universe = DataAPI.EquGet(equTypeCD=u"A", listStatusCD="L,S,DE,UN", 
     #                         field=u"ticker,secID", pandas="1")
@@ -109,5 +131,5 @@ if __name__ == '__main__':
     # universe_without_st = st_remove(universe_secID)
     # print 'universe_without_st', universe_without_st
 
-    time_list = get_time_list('20150101','20160101')
-    print 'time_list', time_list
+    # time_list = get_time_list('20150101','20160101')
+    # print 'time_list', time_list
