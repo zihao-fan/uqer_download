@@ -106,7 +106,7 @@ class DataDownloader(object):
             return list(file_left)
 
     def extract_secid(self, filename):
-        return filename.strip().split('_')[0].replace('-', '.')
+        return filename.strip().split('.')[0].replace('-', '.')
 
 if __name__ == '__main__':
     client = uqer_utils.login()
