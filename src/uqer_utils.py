@@ -24,7 +24,7 @@ def get_today():
     return datetime.datetime.now().strftime('%Y%m%d')
 
 def get_data_filename_from_path(path, max_num=None):
-    data_files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.endswith('.data')]
+    data_files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.endswith('.pkl')]
     if max_num is not None:
         data_files = data_files[0:min(max_num, len(csv_files))]
     return data_files
@@ -113,25 +113,10 @@ def get_time_list(start_date, end_date):
     start_date = parse(start_date)
     end_date = parse(end_date)
     time_list = []
-    while (start_date < end_date): 
-        time_list.append((start_date + datetime.timedelta(days=1)).strftime('%Y-%m-%d'))
+    while (start_date <= end_date): 
+        time_list.append((start_date + datetime.timedelta(days=0)).strftime('%Y-%m-%d'))
         start_date = start_date + datetime.timedelta(days=1)
     return time_list
 
 if __name__ == '__main__':
     pass
-    # today = datetime.datetime.now().strftime('%Y%m%d')
-    # print 'today', today, type(today)
-
-    # tickers = ['600000','000001']
-    # res = secIDs = ticker2secID(tickers)
-    # print 'ticker2secID', res
-
-    # universe = DataAPI.EquGet(equTypeCD=u"A", listStatusCD="L,S,DE,UN", 
-    #                         field=u"ticker,secID", pandas="1")
-    # universe_secID = list(universe['secID'])
-    # universe_without_st = st_remove(universe_secID)
-    # print 'universe_without_st', universe_without_st
-
-    # time_list = get_time_list('20150101','20160101')
-    # print 'time_list', time_list
