@@ -13,7 +13,7 @@ from uqer_utils import root_path
 today = uqer_utils.get_today()
 
 parser = argparse.ArgumentParser(description='Download and save data from uqer DataAPI')
-parser.add_argument('--id', help='下载股票的secID', type=str, default='000905.XSHE')
+parser.add_argument('--id', help='下载股票的secID', type=str, default='000905.XSHG')
 parser.add_argument('--begin', help='下载起始日期 YYYYMMDD', type=str, default='20070101')
 parser.add_argument('--end', help='下载结束日期 默认当日', type=str, default=today)
 parser.add_argument('--unit', help='下载的频率', type=int, default=1)
@@ -28,6 +28,7 @@ if __name__ == '__main__':
     time_list = [t.replace('-', '') for t in time_list]
     
     frames = []
+    counter = 0
     for date in time_list:
         res = uqer.DataAPI.MktBarHistDateRangeGet(securityID=args.id,
             startDate=date,
@@ -35,7 +36,13 @@ if __name__ == '__main__':
             unit=args.unit,
             field=u"",
             pandas="1")
-        frames.append(res.set_index('dataDate'))
+        try:
+            frames.append(res.set_index('dataDate'))
+        except:
+            pass
+        counter += 1
+        if counter % 100 == 0:
+            print date
 
     res = pd.concat(frames)
 
