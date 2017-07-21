@@ -12,8 +12,10 @@ root_path = '/'.join(current_path.split('/')[:-2])
 
 def login():
     account_file_path = os.path.join(root_path, 'account.txt')
-    client = uqer.Client(account_file=account_file_path)
-    return client
+    with open(account_file_path, 'r') as f:
+        token = f.read()
+        client = uqer.Client(token=token)
+        return client
 
 def get_today():
     '''

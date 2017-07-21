@@ -7,6 +7,7 @@ import threading
 import Queue
 import time
 import argparse
+import json
 
 from uqer import DataAPI
 from uqer_utils import root_path
@@ -19,17 +20,17 @@ parser.add_argument('--api', help='表格对应的API名称，字符串形式', 
 parser.add_argument('--begin', help='下载起始日期 YYYYMMDD', type=str, default='20070101')
 parser.add_argument('--end', help='下载结束日期 默认当日', type=str, default=today)
 parser.add_argument('--threads', help='程序下载使用进程数', type=int, default=16)
+parser.add_argument('--params', help='API所需要的其他参数', type=str, default='')
 
 args = parser.parse_args()
 
 class ConsumerThread(threading.Thread):
-    def __init__(self, queue, api, begin_date, end_date, path, name=None):
+    def __init__(self, queue, api, params, path, name=None):
         super(ConsumerThread, self).__init__()
         self.name = name
         self.q = queue
         self.api = api 
-        self.begin_date = begin_date
-        self.end_date = end_date
+        self.params = params
         self.path = path
         return
 
@@ -42,7 +43,9 @@ class ConsumerThread(threading.Thread):
         while not self.q.empty():
                 item = self.q.get()
                 try:
-                    res = self.api(secID=item, beginDate=self.begin_date, endDate=self.end_date)
+                    current_dict = self.params.copy()
+                    current_dict['secID'] = item
+                    res = self.api(**current_dict)
                     store_path = os.path.join(self.path, self.get_file_path(item))
                     res.to_pickle(store_path)
                     print '[Success] Getting ' + str(item)
@@ -55,12 +58,22 @@ class ConsumerThread(threading.Thread):
 
 class DataDownloader(object):
     
-    def __init__(self, chart_name, api, universe, begin_date, end_date):
+    def __init__(self, chart_name, api, universe, begin_date, end_date, params):
         self.chart_name = chart_name
         self.api = getattr(DataAPI, api)
         self.universe = universe
         self.begin_date = begin_date
         self.end_date = end_date
+        self.params = {}
+        try:
+            # print 'params string', params
+            self.params = json.loads(params)
+            print 'Using auxiliary params.'
+        except:
+            print 'No auxiliary params.'
+        self.params['beginDate'] = begin_date
+        self.params['endDate'] = end_date
+        print 'Self params', self.params
         
         # data dir
         data_dir = os.path.join(root_path, 'data')
@@ -86,8 +99,8 @@ class DataDownloader(object):
         self.queue = Queue.Queue()
         [self.queue.put(secID) for secID in universe]
         self.worker_list = [ConsumerThread(self.queue, self.api, 
-                            self.begin_date, self.end_date, 
-                            self.data_path, name='thread'+str(i+1)) for i in range(args.threads)]
+                            self.params, self.data_path, 
+                            name='thread'+str(i+1)) for i in range(args.threads)]
 
     def download(self):
         start_time = time.time()
@@ -115,8 +128,8 @@ if __name__ == '__main__':
     universe_secID = list(universe['secID'])
 
     # for debug
-    stock_num = 100
+    stock_num = 10
     universe_secID = universe_secID[0:stock_num]
 
-    downloader = DataDownloader(args.name, args.api, universe_secID, args.begin, args.end)
+    downloader = DataDownloader(args.name, args.api, universe_secID, args.begin, args.end, args.params)
     downloader.download()
