@@ -9,4 +9,6 @@
 目前的下载逻辑为，指定需要的表格，股票secID，起始日期，中止日期，下载并保存。
 
 
-    python --name 表格名称 --api API函数名 --begin YYYYMMDD --end YYYYMMDD --threads 线程个数
+    python --name 表格名称 --api API函数名 --begin YYYYMMDD --end YYYYMMDD --threads 线程个数 --params 额外参数
+    例如：python data_download.py --name MktEqudAdjGet --api MktEqudAdjGet --params '{"isOpen" : 1}'
+    
