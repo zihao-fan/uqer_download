@@ -17,7 +17,7 @@ today = uqer_utils.get_today()
 parser = argparse.ArgumentParser(description='Download and save data from uqer DataAPI')
 parser.add_argument('--name', help='输入你要下载的表格名称，程序会根据该名称创建目录。', type=str, required=True)
 parser.add_argument('--api', help='表格对应的API名称，字符串形式', type=str, required=True)
-parser.add_argument('--begin', help='下载起始日期 YYYYMMDD', type=str, default='20070101')
+parser.add_argument('--begin', help='下载起始日期 YYYYMMDD', type=str, default=today)
 parser.add_argument('--end', help='下载结束日期 默认当日', type=str, default=today)
 parser.add_argument('--threads', help='程序下载使用进程数', type=int, default=16)
 parser.add_argument('--params', help='API所需要的其他参数', type=str, default='')
@@ -59,6 +59,7 @@ class ConsumerThread(threading.Thread):
 class DataDownloader(object):
     
     def __init__(self, chart_name, api, universe, begin_date, end_date, params):
+        print '[Chart]', chart_name, 'downloading.'
         self.chart_name = chart_name
         self.api = getattr(DataAPI, api)
         self.universe = universe
@@ -112,11 +113,12 @@ class DataDownloader(object):
         set_downloaded = set([self.extract_secid(f) for f in all_file_downloaded])
         set_universe = set(self.universe)
         if set_downloaded == set_universe:
-            print 'All downloaded'
+            print '[Chart]', self.chart_name, 'All downloaded.'
         else:
             file_left = set_universe - set_downloaded
             print '%d files missing' % len(file_left)
             return list(file_left)
+        print ''
 
     def extract_secid(self, filename):
         return filename.strip().split('.')[0].replace('-', '.')
