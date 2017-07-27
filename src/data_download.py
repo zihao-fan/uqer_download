@@ -24,6 +24,9 @@ parser.add_argument('--params', help='API所需要的其他参数', type=str, de
 
 args = parser.parse_args()
 
+no_params_list = ['MktAdjfAfMGet']
+trade_date_list = ['MktLimitGet']
+
 class ConsumerThread(threading.Thread):
     def __init__(self, queue, api, params, path, name=None):
         super(ConsumerThread, self).__init__()
@@ -40,15 +43,21 @@ class ConsumerThread(threading.Thread):
                 date = self.q.get()
                 try:
                     current_dict = self.params.copy()
-                    current_dict['tradeDate'] = date
+                    if args.name in no_params_list :
+                        print 'Not passing any params.'
+                    if args.name in trade_date_list:
+                        current_dict['tradeDate'] = date
+                    else:
+                        current_dict['beginDate'] = date
+                        current_dict['endDate'] = date
                     res = self.api(**current_dict)
                     store_path = os.path.join(self.path, date+'.pkl')
                     res.to_pickle(store_path)
                     print '[Success] Getting ' + str(date)
                 except Exception as e:
-                    self.q.put(date)
+                    # self.q.put(date)
                     print e
-                    print '[Failed] Putting ' + str(date)
+                    print '[Failed]' + str(date)
         return
 
 
@@ -102,6 +111,7 @@ class DataDownloader(object):
         else:
             file_left = date_set - downloaded_set
             print '%d files missing' % len(file_left)
+            print ''
             return list(file_left)
         print ''
 
