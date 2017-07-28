@@ -24,8 +24,16 @@ parser.add_argument('--params', help='API所需要的其他参数', type=str, de
 
 args = parser.parse_args()
 
-no_params_list = ['MktAdjfAfMGet']
-trade_date_list = ['MktLimitGet']
+special_params_dict = {'MktAdjfAfMGet': {}, 'EquGet': {'equTypeCD':'A'}, 'EquRTRankGet': {}, 'SecTypeGet': {}, 'EquManagersInfoGet': {},
+                        'SecTypeRegionRelGet': {}, 'PartyIDGet': {}, 'IndustryGet': {}, 'EquIndustryGet': {}, 'EquPartyNatureGet': {},
+                        'SecIDGet': {}, 'EquSHHKConsGet': {}, 'SecTypeRegionGet': {}, 'SecTypeRelGet': {}, 
+                        'MktCBOMOGet': {'omoType':"1,2,3,4,5", 'beginDate':today, 'endDate':today}, 'EquShareFloatGet':{},
+                        'MktFutOiRatioGet':{'beginDate':today, 'endDate':today}}
+publish_date_list = ['FdmtBSInduGet', 'FdmtISInduGet', 'FdmtIndiGrowthPitGet', 'FdmtIndiPSPitGet', 'FdmtCFBankGet', 'FdmtISSecuGet', 
+                    'FdmtCFInsuGet', 'FdmtBSInsuGet', 'FdmtCFInduGet', 'FdmtIndiRtnPitGet', 'FdmtIndiTrnovrPitGet', 'FdmtISGet',
+                    'FdmtCFSecuGet', 'FdmtBSBankGet', 'FdmtDerPitGet', 'FdmtBSGet', 'FdmtCFGet', 'FdmtBSSecuGet',
+                    'FdmtISBankGet', 'FdmtISInsuGet', 'FdmtCFSecuGet', 'FdmtEfGet', 'FdmtEeGet']
+trade_date_list = ['MktLimitGet', 'MktMFutdGet', 'MktStockFactorsOneDayProGet', 'equSHHKQuotaGet']
 
 class ConsumerThread(threading.Thread):
     def __init__(self, queue, api, params, path, name=None):
@@ -43,8 +51,20 @@ class ConsumerThread(threading.Thread):
                 date = self.q.get()
                 try:
                     current_dict = self.params.copy()
-                    if args.name in no_params_list :
-                        print 'Not passing any params.'
+                    if args.name in special_params_dict :
+                        current_dict.update(special_params_dict[args.name])
+                        if 'beginDate' in current_dict:
+                            current_dict['beginDate'] = date
+                            current_dict['endDate'] = date
+                        if args.name == 'EquShareFloatGet':
+                            current_dict['beginfloatDate'] = date
+                            current_dict['endfloatDate'] = date
+                        if args.name == 'MktFutOiRatioGet':
+                            secList =  DataAPI.SysCodeGet(codeTypeID=u"60003",valueCD=u"",field=u"",pandas="1").valueCD.tolist()
+                            current_dict['contractObject'] = secList
+                    elif args.name in publish_date_list:
+                        current_dict['publishDateBegin'] = date
+                        current_dict['publishDateEnd'] = date
                     elif args.name in trade_date_list:
                         current_dict['tradeDate'] = date
                     else:
