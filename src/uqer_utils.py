@@ -13,7 +13,7 @@ root_path = '/'.join(current_path.split('/')[:-2])
 def login():
     account_file_path = os.path.join(root_path, 'account.txt')
     with open(account_file_path, 'r') as f:
-        token = f.read()
+        token = f.read().encode('utf-8')
         client = uqer.Client(token=token)
         return client
 
@@ -119,4 +119,4 @@ def get_time_list(start_date, end_date):
     return time_list
 
 if __name__ == '__main__':
-    pass
+    login()

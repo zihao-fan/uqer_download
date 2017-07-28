@@ -45,7 +45,7 @@ class ConsumerThread(threading.Thread):
                     current_dict = self.params.copy()
                     if args.name in no_params_list :
                         print 'Not passing any params.'
-                    if args.name in trade_date_list:
+                    elif args.name in trade_date_list:
                         current_dict['tradeDate'] = date
                     else:
                         current_dict['beginDate'] = date
@@ -59,7 +59,6 @@ class ConsumerThread(threading.Thread):
                     print e
                     print '[Failed]' + str(date)
         return
-
 
 class DataDownloader(object):
     
