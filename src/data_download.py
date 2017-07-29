@@ -71,8 +71,8 @@ class ConsumerThread(threading.Thread):
                         current_dict['beginDate'] = date
                         current_dict['endDate'] = date
                     res = self.api(**current_dict)
-                    store_path = os.path.join(self.path, date+'.pkl')
-                    res.to_pickle(store_path)
+                    store_path = os.path.join(self.path, date+'.h5')
+                    res.to_hdf(store_path, 'df')
                     print '[Success] Getting ' + str(date)
                 except Exception as e:
                     # self.q.put(date)
