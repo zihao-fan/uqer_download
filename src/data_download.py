@@ -8,6 +8,8 @@ import Queue
 import time
 import argparse
 import json
+import datetime
+from dateutil.parser import parse
 
 from uqer import DataAPI
 from uqer_utils import root_path
@@ -21,6 +23,7 @@ parser.add_argument('--begin', help='下载起始日期 YYYYMMDD', type=str, def
 parser.add_argument('--end', help='下载结束日期 默认当日', type=str, default=today)
 parser.add_argument('--threads', help='程序下载使用进程数', type=int, default=1)
 parser.add_argument('--params', help='API所需要的其他参数', type=str, default='')
+parser.add_argument('--mode', help='下载的方式,单线程多天下载(period)or多线程逐天下载(day)', type=str, default='day')
 
 args = parser.parse_args()
 
@@ -80,6 +83,10 @@ class ConsumerThread(threading.Thread):
                     print '[Failed]' + str(date)
         return
 
+def get_date_str(text):
+    date = parse(text)
+    return date.strftime('%Y-%m-%d')
+
 class DataDownloader(object):
     
     def __init__(self, chart_name, api, begin_date, end_date, params):
@@ -106,33 +113,75 @@ class DataDownloader(object):
             print 'Creating directory:', self.data_path
             os.makedirs(self.data_path)
 
-        self.queue = Queue.Queue()
-        self.date_list = uqer_utils.get_time_list(begin_date, end_date)
-        print 'date list', self.date_list
-        [self.queue.put(date) for date in self.date_list]
-        self.worker_list = [ConsumerThread(self.queue, self.api, 
-                            self.params, self.data_path, 
-                            name='thread'+str(i+1)) for i in range(args.threads)]
+        if args.mode == 'day':
+            print 'Using multi-thread mode. Download by a single day.'
+            self.queue = Queue.Queue()
+            self.date_list = uqer_utils.get_time_list(begin_date, end_date)
+            print 'date list', self.date_list
+            [self.queue.put(date) for date in self.date_list]
+            self.worker_list = [ConsumerThread(self.queue, self.api, 
+                                self.params, self.data_path, 
+                                name='thread'+str(i+1)) for i in range(args.threads)]
+        elif args.mode == 'period':
+            print 'Using single thread mode. Download by many days.'
+            self.begin_date = begin_date
+            self.end_date = end_date
+
+    def single_thread_download(self):
+        try:
+            current_dict = self.params.copy()
+            if args.name in special_params_dict :
+                current_dict.update(special_params_dict[args.name])
+                if 'beginDate' in current_dict:
+                    current_dict['beginDate'] = self.begin_date
+                    current_dict['endDate'] = self.end_date
+                if args.name == 'EquShareFloatGet':
+                    current_dict['beginfloatDate'] = self.begin_date
+                    current_dict['endfloatDate'] = self.end_date
+                if args.name == 'MktFutOiRatioGet':
+                    secList =  DataAPI.SysCodeGet(codeTypeID=u"60003",valueCD=u"",field=u"",pandas="1").valueCD.tolist()
+                    current_dict['contractObject'] = secList
+            elif args.name in publish_date_list:
+                current_dict['publishDateBegin'] = self.begin_date
+                current_dict['publishDateEnd'] = self.end_date
+            else:
+                current_dict['beginDate'] = self.begin_date
+                current_dict['endDate'] = self.end_date
+            res = self.api(**current_dict)
+            if self.begin_date != self.end_date:
+                date_name = get_date_str(self.begin_date) + '+' + get_date_str(self.end_date)
+            else:
+                date_name = get_date_str(self.begin_date)
+            store_path = os.path.join(self.data_path, date_name+'.h5')
+            res.to_hdf(store_path, 'df')
+            print '[Success] Getting ' + str(date_name)
+        except Exception as e:
+            # self.q.put(date)
+            print e
+            print '[Failed]' + str(self.begin_date) + ' ' + str(self.end_date)
 
     def download(self):
         start_time = time.time()
-        [w.start() for w in self.worker_list]
-        [w.join() for w in self.worker_list]
+        if args.mode == 'day':
+            [w.start() for w in self.worker_list]
+            [w.join() for w in self.worker_list]
+        if args.mode == 'period':
+            self.single_thread_download()
         # check if all done
         print 'Done downloading in %s minutes' % str((time.time() - start_time) / 60)
-        all_file_downloaded = uqer_utils.get_data_filename_from_path(self.data_path)
-        downloaded_set = set([f.split('.')[0] for f in all_file_downloaded])
-        print 'downloaded_set', downloaded_set
-        date_set = set(self.date_list)
-        print 'date_set', date_set
-        if date_set == downloaded_set:
-            print '[Chart]', self.chart_name, 'All downloaded.'
-        else:
-            file_left = date_set - downloaded_set
-            print '%d files missing' % len(file_left)
-            print ''
-            return list(file_left)
-        print ''
+        # all_file_downloaded = uqer_utils.get_data_filename_from_path(self.data_path)
+        # downloaded_set = set([f.split('.')[0] for f in all_file_downloaded])
+        # print 'downloaded_set', downloaded_set
+        # date_set = set(self.date_list)
+        # print 'date_set', date_set
+        # if date_set == downloaded_set:
+        #     print '[Chart]', self.chart_name, 'All downloaded.'
+        # else:
+        #     file_left = date_set - downloaded_set
+        #     print '%d files missing' % len(file_left)
+        #     print ''
+        #     return list(file_left)
+        # print ''
 
 if __name__ == '__main__':
     client = uqer_utils.login()

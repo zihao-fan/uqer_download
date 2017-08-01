@@ -10,6 +10,7 @@ parser.add_argument('--begin', help='下载起始日期 YYYYMMDD', type=str, def
 parser.add_argument('--end', help='下载结束日期 默认当日', type=str, default=today)
 # freq choose from all, year, day, month
 parser.add_argument('--freq', help='下载的频率，只下载对应频率的表格', type=str, default='')
+parser.add_argument('--mode', help='下载的方式,单线程多天下载(period)or多线程逐天下载(day)', type=str, default='day')
 args = parser.parse_args()
 
 filename = 'api_dict.json'
@@ -26,5 +27,5 @@ else:
     api_list = api_dict[args.freq]
 
 for api in api_list:
-    command_str = ' '.join(['python', 'src/data_download.py', '--name', api, '--api', api, '--begin', args.begin, '--end', args.end])
+    command_str = ' '.join(['python', 'src/data_download.py', '--name', api, '--api', api, '--begin', args.begin, '--end', args.end, '--mode', args.mode])
     os.system(command_str)
