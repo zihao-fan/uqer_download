@@ -13,30 +13,22 @@ from dateutil.parser import parse
 
 from uqer import DataAPI
 from uqer_utils import root_path
+from data_list import special_params_dict, publish_date_list, trade_date_list, skip_list, by_day_list
 
 today = uqer_utils.get_today()
+yesterday = uqer_utils.get_yesterday()
 
 parser = argparse.ArgumentParser(description='Download and save data from uqer DataAPI')
-parser.add_argument('--name', help='输入你要下载的表格名称，程序会根据该名称创建目录。', type=str, required=True)
-parser.add_argument('--api', help='表格对应的API名称，字符串形式', type=str, required=True)
-parser.add_argument('--begin', help='下载起始日期 YYYYMMDD', type=str, default=today)
-parser.add_argument('--end', help='下载结束日期 默认当日', type=str, default=today)
+parser.add_argument('--begin', help='下载起始日期 YYYYMMDD', type=str, default=yesterday)
+parser.add_argument('--end', help='下载结束日期 默认当日', type=str, default=yesterday)
 parser.add_argument('--threads', help='程序下载使用进程数', type=int, default=1)
 parser.add_argument('--params', help='API所需要的其他参数', type=str, default='')
 parser.add_argument('--mode', help='下载的方式,单线程多天下载(period)or多线程逐天下载(day)', type=str, default='day')
 
 args = parser.parse_args()
 
-special_params_dict = {'MktAdjfAfMGet': {}, 'EquGet': {'equTypeCD':'A'}, 'EquRTRankGet': {}, 'SecTypeGet': {}, 'EquManagersInfoGet': {},
-                        'SecTypeRegionRelGet': {}, 'PartyIDGet': {}, 'IndustryGet': {}, 'EquIndustryGet': {}, 'EquPartyNatureGet': {},
-                        'SecIDGet': {}, 'EquSHHKConsGet': {}, 'SecTypeRegionGet': {}, 'SecTypeRelGet': {}, 
-                        'MktCBOMOGet': {'omoType':"1,2,3,4,5", 'beginDate':today, 'endDate':today}, 'EquShareFloatGet':{},
-                        'MktFutOiRatioGet':{'beginDate':today, 'endDate':today}}
-publish_date_list = ['FdmtBSInduGet', 'FdmtISInduGet', 'FdmtIndiGrowthPitGet', 'FdmtIndiPSPitGet', 'FdmtCFBankGet', 'FdmtISSecuGet', 
-                    'FdmtCFInsuGet', 'FdmtBSInsuGet', 'FdmtCFInduGet', 'FdmtIndiRtnPitGet', 'FdmtIndiTrnovrPitGet', 'FdmtISGet',
-                    'FdmtCFSecuGet', 'FdmtBSBankGet', 'FdmtDerPitGet', 'FdmtBSGet', 'FdmtCFGet', 'FdmtBSSecuGet',
-                    'FdmtISBankGet', 'FdmtISInsuGet', 'FdmtCFSecuGet', 'FdmtEfGet', 'FdmtEeGet']
-trade_date_list = ['MktLimitGet', 'MktMFutdGet', 'MktStockFactorsOneDayProGet', 'equSHHKQuotaGet']
+fail_set = set()
+current_name = ''
 
 class ConsumerThread(threading.Thread):
     def __init__(self, queue, api, params, path, name=None):
@@ -46,7 +38,6 @@ class ConsumerThread(threading.Thread):
         self.api = api 
         self.params = params
         self.path = path
-        self.universe = universe
         return
 
     def run(self):
@@ -54,21 +45,27 @@ class ConsumerThread(threading.Thread):
                 date = self.q.get()
                 try:
                     current_dict = self.params.copy()
-                    if args.name in special_params_dict :
-                        current_dict.update(special_params_dict[args.name])
+                    if current_name in special_params_dict :
+                        current_dict.update(special_params_dict[current_name])
                         if 'beginDate' in current_dict:
                             current_dict['beginDate'] = date
                             current_dict['endDate'] = date
-                        if args.name == 'EquShareFloatGet':
+                        if current_name == 'EquShareFloatGet':
                             current_dict['beginfloatDate'] = date
                             current_dict['endfloatDate'] = date
-                        if args.name == 'MktFutOiRatioGet':
+                        if current_name == 'MktFutOiRatioGet':
                             secList =  DataAPI.SysCodeGet(codeTypeID=u"60003",valueCD=u"",field=u"",pandas="1").valueCD.tolist()
                             current_dict['contractObject'] = secList
-                    elif args.name in publish_date_list:
+                        if current_name == 'NewsInfoByInsertTimeGet':
+                            current_dict['newsInsertDate'] = date
+                        if current_name == 'NewsInfoByTimeGet' or current_name == 'NewsInfoByTimeAndSiteGet':
+                            current_dict['newsPublishDate'] = date
+                        if current_name == 'SocialDataXQByDateGet':
+                            current_dict['statisticsDate'] = date
+                    elif current_name in publish_date_list:
                         current_dict['publishDateBegin'] = date
                         current_dict['publishDateEnd'] = date
-                    elif args.name in trade_date_list:
+                    elif current_name in trade_date_list:
                         current_dict['tradeDate'] = date
                     else:
                         current_dict['beginDate'] = date
@@ -76,24 +73,33 @@ class ConsumerThread(threading.Thread):
                     res = self.api(**current_dict)
                     store_path = os.path.join(self.path, date+'.h5')
                     res.to_hdf(store_path, 'df')
-                    print '[Success] Getting ' + str(date)
+                    print '[Success] Getting ' + str(date) + '\n'
                 except Exception as e:
                     # self.q.put(date)
+                    fail_set.add(current_name)
                     print e
-                    print '[Failed]' + str(date)
+                    print '[Failed]' + str(date) + '\n'
         return
 
 def get_date_str(text):
     date = parse(text)
     return date.strftime('%Y-%m-%d')
 
+def get_date_filename(begin_date, end_date):
+    if begin_date != end_date:
+        date_name = get_date_str(begin_date) + '+' + get_date_str(end_date)
+    else:
+        date_name = get_date_str(begin_date)
+    return date_name
+
 class DataDownloader(object):
     
-    def __init__(self, chart_name, api, begin_date, end_date, params):
+    def __init__(self, chart_name, begin_date, end_date, params, mode):
         print '[Chart]', chart_name, 'downloading.'
         self.chart_name = chart_name
-        self.api = getattr(DataAPI, api)
+        self.api = getattr(DataAPI, chart_name) # function pointer already
         self.params = {}
+        self.mode = mode
         try:
             self.params = json.loads(params)
             print 'Using auxiliary params.'
@@ -113,7 +119,7 @@ class DataDownloader(object):
             print 'Creating directory:', self.data_path
             os.makedirs(self.data_path)
 
-        if args.mode == 'day':
+        if self.mode == 'day':
             print 'Using multi-thread mode. Download by a single day.'
             self.queue = Queue.Queue()
             self.date_list = uqer_utils.get_time_list(begin_date, end_date)
@@ -122,7 +128,7 @@ class DataDownloader(object):
             self.worker_list = [ConsumerThread(self.queue, self.api, 
                                 self.params, self.data_path, 
                                 name='thread'+str(i+1)) for i in range(args.threads)]
-        elif args.mode == 'period':
+        elif self.mode == 'period':
             print 'Using single thread mode. Download by many days.'
             self.begin_date = begin_date
             self.end_date = end_date
@@ -130,68 +136,68 @@ class DataDownloader(object):
     def single_thread_download(self):
         try:
             current_dict = self.params.copy()
-            if args.name in special_params_dict :
-                current_dict.update(special_params_dict[args.name])
+            if current_name in special_params_dict:
+                current_dict.update(special_params_dict[current_name])
                 if 'beginDate' in current_dict:
                     current_dict['beginDate'] = self.begin_date
                     current_dict['endDate'] = self.end_date
-                if args.name == 'EquShareFloatGet':
+                if current_name == 'EquShareFloatGet':
                     current_dict['beginfloatDate'] = self.begin_date
                     current_dict['endfloatDate'] = self.end_date
-                if args.name == 'MktFutOiRatioGet':
+                if current_name == 'MktFutOiRatioGet':
                     secList =  DataAPI.SysCodeGet(codeTypeID=u"60003",valueCD=u"",field=u"",pandas="1").valueCD.tolist()
                     current_dict['contractObject'] = secList
-            elif args.name in publish_date_list:
+            elif current_name in publish_date_list:
                 current_dict['publishDateBegin'] = self.begin_date
                 current_dict['publishDateEnd'] = self.end_date
             else:
                 current_dict['beginDate'] = self.begin_date
                 current_dict['endDate'] = self.end_date
             res = self.api(**current_dict)
-            if self.begin_date != self.end_date:
-                date_name = get_date_str(self.begin_date) + '+' + get_date_str(self.end_date)
-            else:
-                date_name = get_date_str(self.begin_date)
+            date_name = get_date_filename(self.begin_date, self.end_date)
             store_path = os.path.join(self.data_path, date_name+'.h5')
             res.to_hdf(store_path, 'df')
-            print '[Success] Getting ' + str(date_name)
+            print '[Success] Getting ' + str(date_name) + '\n'
         except Exception as e:
-            # self.q.put(date)
+            fail_set.add(current_name)
             print e
-            print '[Failed]' + str(self.begin_date) + ' ' + str(self.end_date)
+            print '[Failed]' + str(self.begin_date) + ' ' + str(self.end_date) + '\n'
 
     def download(self):
         start_time = time.time()
-        if args.mode == 'day':
+        if self.mode == 'day':
             [w.start() for w in self.worker_list]
             [w.join() for w in self.worker_list]
-        if args.mode == 'period':
+        if self.mode == 'period':
             self.single_thread_download()
-        # check if all done
         print 'Done downloading in %s minutes' % str((time.time() - start_time) / 60)
-        # all_file_downloaded = uqer_utils.get_data_filename_from_path(self.data_path)
-        # downloaded_set = set([f.split('.')[0] for f in all_file_downloaded])
-        # print 'downloaded_set', downloaded_set
-        # date_set = set(self.date_list)
-        # print 'date_set', date_set
-        # if date_set == downloaded_set:
-        #     print '[Chart]', self.chart_name, 'All downloaded.'
-        # else:
-        #     file_left = date_set - downloaded_set
-        #     print '%d files missing' % len(file_left)
-        #     print ''
-        #     return list(file_left)
-        # print ''
 
 if __name__ == '__main__':
     client = uqer_utils.login()
-    universe = DataAPI.EquGet(equTypeCD=u"A", listStatusCD="L,S,DE,UN", 
-                             field=u"ticker,secID", pandas="1")
-    universe_secID = list(universe['secID'])
 
-    # for debug
-    stock_num = 10
-    universe_secID = universe_secID[0:stock_num]
+    # could alter here 
+    with open('../set_v1.json', 'r') as f:
+        set_v1 = set(json.load(f))
+    with open('../set_v3.json', 'r') as f:
+        set_v3 = set(json.load(f))
 
-    downloader = DataDownloader(args.name, args.api, args.begin, args.end, args.params)
-    downloader.download()
+    # download_list = list(set_v3) # all forms
+    download_list = list(set_v3 - set_v1) # new forms
+    # download_list = [] # self defining forms
+
+    for item in download_list:
+        current_name = item
+        if current_name in skip_list:
+            continue
+        if current_name in by_day_list:
+            downloader = DataDownloader(current_name, args.begin, args.end, args.params, 'day')
+        else:
+            downloader = DataDownloader(current_name, args.begin, args.end, args.params, args.mode)
+        downloader.download()
+
+    fail_list = list(fail_set)
+    date_name = get_date_filename(args.begin, args.end)
+    log_path = os.path.join(root_path, 'logs', date_name+'.log')
+    with open(log_path, 'w') as f:
+        json.dump(fail_list, f)
+    print 'Log info dumped to', log_path

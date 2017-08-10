@@ -23,6 +23,9 @@ def get_today():
     '''
     return datetime.datetime.now().strftime('%Y%m%d')
 
+def get_yesterday():
+    return (datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')
+
 def get_data_filename_from_path(path, max_num=None):
     data_files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.endswith('.h5')]
     if max_num is not None:

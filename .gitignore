@@ -1,7 +1,8 @@
 *DS_Store
 data/
 account.txt
-
+logs/
+*.csv
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
